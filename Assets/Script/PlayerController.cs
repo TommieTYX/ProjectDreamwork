@@ -4,29 +4,24 @@ using UnityEngine;
 using UnityEngine.Networking;
 public class PlayerController : NetworkBehaviour {
 
-    [SerializeField]
     public float moveSpeed = 4f;
     public float jumpForce = 15f;
-    public float rotationSpeed = 60f;
+    public float rotationSpeed = 55f;
     public LayerMask groundLayers;
 
     private Vector3 forward, right;
     private Rigidbody rb;
-
-    CapsuleCollider col;
+    private CapsuleCollider cc;
 
 	// Use this for initialization
 	void Start () {
-        forward = Camera.main.transform.forward;
+        forward = GameObject.Find("PlayerCamera").transform.forward;// new Vector3(0.6f, -0.5f, 0.6f);//Camera.main.transform.forward;
         forward.y = 0;
         forward = Vector3.Normalize(forward);
         right = Quaternion.Euler(new Vector3(0, 90, 0)) * forward;
 
         rb = GetComponent<Rigidbody>();
-        col = GetComponent<CapsuleCollider>();
-
-        /*rb = transform.Find("PlayerModel").GetComponent<Rigidbody>();
-        col = transform.Find("PlayerModel").GetComponent<CapsuleCollider>();*/
+        cc = GetComponent<CapsuleCollider>();
     }
 	
 	// Update is called once per frame
@@ -56,13 +51,12 @@ public class PlayerController : NetworkBehaviour {
     }
 
     void Jump() {
-        //Debug.Log("SDFSDFSDF: " + IsGrounded());
         if (IsGrounded() && Input.GetKeyDown(KeyCode.Space)) {
             rb.AddForce(Vector3.up * jumpForce, ForceMode.Impulse);
         }
     }
 
     private bool IsGrounded() {
-        return Physics.CheckCapsule(col.bounds.center, new Vector3(col.bounds.center.x, col.bounds.min.y, col.bounds.center.z), col.radius * .9f, groundLayers);
+        return Physics.CheckCapsule(cc.bounds.center, new Vector3(cc.bounds.center.x, cc.bounds.min.y, cc.bounds.center.z), cc.radius * .9f, groundLayers);
     }
 }
