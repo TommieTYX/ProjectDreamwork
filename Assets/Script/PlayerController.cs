@@ -92,18 +92,31 @@ public class PlayerController : NetworkBehaviour {
 
     void initClimb() {
         Ray ray = new Ray(transform.position, transform.forward);
-        RaycastHit hit;        
+        Ray rayL = new Ray(transform.position + new Vector3(-0.5f, 0, 0), transform.forward);
+        Ray rayR = new Ray(transform.position + new Vector3(0.5f, 0, 0), transform.forward);
+
+        RaycastHit hit;
+
+        Debug.DrawRay(transform.position, transform.forward, Color.green);
+        Debug.DrawRay(transform.position - transform.TransformVector(Vector3.left * 0.5f), transform.forward, Color.red);
+        Debug.DrawRay(transform.position - transform.TransformVector(Vector3.left * -0.5f), transform.forward, Color.blue);
 
         if (isClimbing) {
-            rb.isKinematic = true;            
-        } else if (!isClimbing && rb.isKinematic) {
-            rb.isKinematic = false;
-            transform.position += Vector3.up * moveSpeed * Time.deltaTime * 10; //temp solution
+            rb.drag = 100;
+        } else if (!isClimbing) {
+            rb.drag = 0;
+            //transform.position += Vector3.up * moveSpeed * Time.deltaTime * 10; //temp solution
         }
         
-        if (Physics.Raycast(ray, out hit, 0.5f)) {
+        if (Physics.Raycast(ray, out hit, 0.6f)) {
             if (hit.transform.gameObject.GetComponent<EnvironmentObject>().isClimbable && isClimbing == false) {
                 isClimbing = true;
+                if (Physics.Raycast(rayL, out hit, 0.6f)) {
+                    Debug.Log("TURN LEFT");
+                    transform.eulerAngles -= new Vector3(0, 45, 0);
+                } else if (Physics.Raycast(rayR, out hit, 0.6f)) {
+                    transform.eulerAngles += new Vector3(0, 45, 0);
+                }
             }
         } else {
             isClimbing = false;
