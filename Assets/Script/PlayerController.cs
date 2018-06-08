@@ -9,12 +9,13 @@ public class PlayerController : NetworkBehaviour {
     public float rotationSpeed = 55f;
     public LayerMask groundLayers;
 
-    private Vector3 forward, right, altRight, up;
+    private Vector3 forward, right, climbRight, up;
     private Rigidbody rb;
     private CapsuleCollider cc;
     private bool isClimbing = false;
+    private bool c2 = false;
 
-	void Start () {
+    void Start () {
         forward = GameObject.Find("PlayerCamera").transform.forward;// new Vector3(0.6f, -0.5f, 0.6f);//Camera.main.transform.forward;
         forward.y = 0;
         forward = Vector3.Normalize(forward);
@@ -92,34 +93,67 @@ public class PlayerController : NetworkBehaviour {
 
     void initClimb() {
         Ray ray = new Ray(transform.position, transform.forward);
-        Ray rayL = new Ray(transform.position + new Vector3(-0.5f, 0, 0), transform.forward);
-        Ray rayR = new Ray(transform.position + new Vector3(0.5f, 0, 0), transform.forward);
+        Ray rayL = new Ray(transform.position - transform.TransformVector(Vector3.left * -0.5f), transform.forward);
+        Ray rayR = new Ray(transform.position - transform.TransformVector(Vector3.right * -0.5f), transform.forward);
+        Ray rayLL = new Ray(transform.position - transform.TransformVector(Vector3.left * -0.2f), -transform.right);
+        Ray rayRR = new Ray(transform.position - transform.TransformVector(Vector3.right * -0.2f), transform.right);
 
         RaycastHit hit;
 
         Debug.DrawRay(transform.position, transform.forward, Color.green);
-        Debug.DrawRay(transform.position - transform.TransformVector(Vector3.left * 0.5f), transform.forward, Color.red);
+
         Debug.DrawRay(transform.position - transform.TransformVector(Vector3.left * -0.5f), transform.forward, Color.blue);
+        Debug.DrawRay(transform.position - transform.TransformVector(Vector3.right * -0.5f), transform.forward, Color.red);
+
+        Debug.DrawRay(transform.position - transform.TransformVector(Vector3.left * -0.2f), -transform.right * 0.4f, Color.blue);
+        Debug.DrawRay(transform.position - transform.TransformVector(Vector3.right * -0.2f), transform.right * 0.4f, Color.red);
+
+        Debug.DrawRay(transform.position - transform.TransformVector(Vector3.forward *-0.5f), transform.up, Color.black);
 
         if (isClimbing) {
             rb.drag = 100;
         } else if (!isClimbing) {
             rb.drag = 0;
-            //transform.position += Vector3.up * moveSpeed * Time.deltaTime * 10; //temp solution
         }
         
         if (Physics.Raycast(ray, out hit, 0.6f)) {
             if (hit.transform.gameObject.GetComponent<EnvironmentObject>().isClimbable && isClimbing == false) {
                 isClimbing = true;
-                if (Physics.Raycast(rayL, out hit, 0.6f)) {
-                    Debug.Log("TURN LEFT");
+                if (Physics.Raycast(rayL, out hit, 0.4f)) {
+                    //Snap left when wall on nearer to left
                     transform.eulerAngles -= new Vector3(0, 45, 0);
-                } else if (Physics.Raycast(rayR, out hit, 0.6f)) {
+                } else if (Physics.Raycast(rayR, out hit, 0.4f)) {
+                    //Snap right when wall nearer to right
                     transform.eulerAngles += new Vector3(0, 45, 0);
                 }
             }
+
+            Debug.Log("LL: " + Physics.Raycast(rayLL, out hit, 0.05f) + Input.GetKey(KeyCode.A) +  "____RR: " + Physics.Raycast(rayRR, out hit, 0.05f) + Input.GetKey(KeyCode.D));
+
+            if (Physics.Raycast(rayLL, out hit, 0.4f) && isClimbing && Input.GetKey(KeyCode.A)) {
+                //Turn left when wall continue on left
+                transform.eulerAngles -= new Vector3(0, 90, 0);
+                //Debug.Log("Turn LEFT");
+            } else if (Physics.Raycast(rayRR, out hit, 0.4f) && isClimbing && Input.GetKey(KeyCode.D)) {
+                //Turn right when wall continue on right
+                transform.eulerAngles += new Vector3(0, 90, 0);
+                //Debug.Log("Turn RIGHT");
+            }
         } else {
-            isClimbing = false;
+            if (!Physics.Raycast(ray, out hit, 0.6f) && Physics.Raycast(rayR, out hit, 0.6f) && isClimbing) {
+                //Debug.Log("Climb Left");
+                //rotation pivot: transform.position -= ;
+                //transform.position = Pi
+                transform.RotateAround(transform.position - transform.TransformVector(Vector3.forward * -0.5f), Vector3.up, 90f);
+            } else if (!Physics.Raycast(ray, out hit, 0.6f) && Physics.Raycast(rayL, out hit, 0.6f) && isClimbing) {
+                //Debug.Log("Climb Right");
+                transform.RotateAround(transform.position - transform.TransformVector(Vector3.forward * -0.5f), Vector3.up, -90f);
+            } else if (isClimbing) {
+                //TODO: temp solution - up ladder ok, but down ladder need to stop the jump
+                transform.position += Vector3.up * moveSpeed * Time.deltaTime * 20;
+                //Debug.Log("TEST CHECK");
+                isClimbing = false;
+            }
         }
     }
 
@@ -127,8 +161,8 @@ public class PlayerController : NetworkBehaviour {
         /*if(Input.GetKey(KeyCode.W)) {
             transform.position += Vector3.up * moveSpeed * Time.deltaTime;
         }*/
-        altRight = Quaternion.Euler(new Vector3(0, 90, 0)) * transform.forward;
-        Vector3 rightMovement = altRight * moveSpeed * Time.deltaTime * Input.GetAxis("HorizontalKey");
+        climbRight = Quaternion.Euler(new Vector3(0, 90, 0)) * transform.forward;
+        Vector3 rightMovement = climbRight * moveSpeed * Time.deltaTime * Input.GetAxis("HorizontalKey");
         Vector3 upMovement = up * moveSpeed * Time.deltaTime * Input.GetAxis("VerticalKey");
         Vector3 heading = Vector3.Normalize(rightMovement + upMovement);
 
@@ -140,6 +174,7 @@ public class PlayerController : NetworkBehaviour {
 
         //Jump off ladder (temp solution)
         if (Input.GetKey(KeyCode.Space)) {
+            //TODO: Wrong direction when jumping
             transform.position += -Vector3.forward * moveSpeed * Time.deltaTime * 10;
         }
     }
@@ -158,6 +193,7 @@ public class PlayerController : NetworkBehaviour {
         return Physics.CheckCapsule(cc.bounds.center, new Vector3(cc.bounds.center.x, cc.bounds.min.y, cc.bounds.center.z), cc.radius * .9f, groundLayers) && rb.velocity.y >= -1;
     }
 
+    //NOT USED
     public bool ClimbingEnabled {
         get {
             return isClimbing;
